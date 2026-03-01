@@ -33,4 +33,3 @@ python-dotenv==1.0.1
 # ── Utilities ─────────────────────────────────────────────────
 httpx==0.28.1
 tenacity==9.0.0              # retry logic for external API calls
-greenlet>=3.0.0

@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoodLens · Your AI Journal</title>
+
+  <!-- Fonts: Playfair Display (editorial display) + DM Sans (clean body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- React 18, Babel, Recharts -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.min.js"></script>
+
+  <style>
+    /* ── Design tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg-deep:      #0d0f14;
+      --bg-card:      #13161e;
+      --bg-elevated:  #1a1e2a;
+      --bg-input:     #1e2333;
+      --border:       rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.15);
+
+      --gold:         #c9a84c;
+      --gold-light:   #e8c876;
+      --gold-dim:     rgba(201,168,76,0.15);
+
+      --text-primary: #f0e8d8;
+      --text-muted:   #7a8099;
+      --text-dim:     #3d4258;
+
+      --mood-1: #e25454;  /* very bad  */
+      --mood-2: #e2854f;  /* bad       */
+      --mood-3: #d4c357;  /* neutral   */
+      --mood-4: #6bbd7f;  /* good      */
+      --mood-5: #54b8d4;  /* very good */
+
+      --radius: 16px;
+      --radius-sm: 10px;
+      --transition: 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    #root { position: relative; z-index: 1; }
+
+    h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 3px; }
+
+    /* ── Animations ────────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(18px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+    @keyframes pulse-gold {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.4); }
+      50%       { box-shadow: 0 0 0 10px rgba(201,168,76,0); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .fade-up        { animation: fadeUp 0.5s ease forwards; }
+    .fade-up-delay1 { animation: fadeUp 0.5s 0.1s ease both; }
+    .fade-up-delay2 { animation: fadeUp 0.5s 0.2s ease both; }
+    .fade-up-delay3 { animation: fadeUp 0.5s 0.3s ease both; }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 28px 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .sidebar-logo h1 {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(to right, var(--gold-light), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-logo span {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      color: var(--text-muted);
+      display: block;
+      -webkit-text-fill-color: var(--text-muted);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 14px;
+      transition: all var(--transition);
+      margin-bottom: 4px;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--gold-dim);
+      color: var(--gold-light);
+    }
+
+    .nav-icon { font-size: 18px; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--bg-deep);
+      flex-shrink: 0;
+    }
+
+    .user-name { font-size: 13px; font-weight: 600; }
+    .user-tier { font-size: 11px; color: var(--gold); }
+
+    /* ── Main content ───────────────────────────────────────────────── */
+    .main-content {
+      padding: 36px 40px;
+      max-width: 1100px;
+    }
+
+    .page-header {
+      margin-bottom: 32px;
+    }
+
+    .page-header h2 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .page-header p {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    /* ── Cards ──────────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color var(--transition);
+    }
+
+    .card:hover { border-color: var(--border-hover); }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 18px;
+    }
+
+    /* ── Stat cards grid ────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ── Grid layouts ───────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+    /* ── Buttons ────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      border: none;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: var(--bg-deep);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(201,168,76,0.35);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+
+    .btn-danger {
+      background: rgba(226,84,84,0.1);
+      border: 1px solid rgba(226,84,84,0.25);
+      color: #e25454;
+    }
+
+    .btn-danger:hover {
+      background: rgba(226,84,84,0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ── Form elements ──────────────────────────────────────────────── */
+    .form-group { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--gold);
+    }
+
+    textarea { resize: vertical; min-height: 140px; line-height: 1.7; }
+
+    /* ── Mood slider ─────────────────────────────────────────────────── */
+    .mood-slider-wrap {
+      padding: 12px 0;
+    }
+
+    .mood-emojis {
+      display: flex; justify-content: space-between;
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 3px;
+      outline: none;
+      border: none;
+      padding: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(201,168,76,0.5);
+      animation: pulse-gold 2s infinite;
+    }
+
+    .mood-value-display {
+      text-align: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 42px;
+      font-weight: 700;
+      margin: 10px 0;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+
+    /* ── Skeleton loader ─────────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-input) 50%, var(--bg-elevated) 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    /* ── Entry card ──────────────────────────────────────────────────── */
+    .entry-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .entry-card:hover {
+      border-color: var(--border-hover);
+      transform: translateX(4px);
+    }
+
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .entry-date { font-size: 12px; color: var(--text-muted); }
+    .mood-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px; font-weight: 600;
+    }
+
+    .entry-summary { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+    .entry-processing {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-muted);
+      background: var(--bg-elevated);
+      padding: 3px 10px; border-radius: 20px;
+    }
+
+    /* ── AI Insight box ──────────────────────────────────────────────── */
+    .insight-box {
+      background: linear-gradient(135deg, rgba(201,168,76,0.06), rgba(201,168,76,0.02));
+      border: 1px solid rgba(201,168,76,0.18);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+    }
+
+    .insight-box .insight-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .ai-badge {
+      background: rgba(201,168,76,0.15);
+      color: var(--gold-light);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .insight-text {
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text-primary);
+      font-style: italic;
+    }
+
+    /* ── Coping tips ─────────────────────────────────────────────────── */
+    .coping-tip {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+
+    .coping-tip::before { content: '✦'; color: var(--gold); flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Auth screen ─────────────────────────────────────────────────── */
+    .auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .auth-card {
+      width: 100%; max-width: 440px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 44px 40px;
+    }
+
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .auth-logo .logo-mark-lg {
+      width: 60px; height: 60px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      border-radius: 18px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+
+    .auth-logo h1 {
+      font-size: 28px;
+      background: linear-gradient(to right, var(--gold-light), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-logo p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: var(--bg-deep);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all var(--transition);
+    }
+
+    .auth-tab.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .error-msg {
+      background: rgba(226,84,84,0.1);
+      border: 1px solid rgba(226,84,84,0.25);
+      color: #f08080;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+
+    /* ── Spinner ─────────────────────────────────────────────────────── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Loading overlay ─────────────────────────────────────────────── */
+    .loading-full {
+      min-height: 60vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+
+    .loading-full .spinner {
+      width: 40px; height: 40px;
+      border-width: 3px;
+    }
+
+    /* ── Streak flame ─────────────────────────────────────────────────── */
+    .streak-display {
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .streak-flame { font-size: 28px; }
+
+    /* ── Entry detail modal overlay ──────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    .modal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px;
+      width: 100%; max-width: 620px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: fadeUp 0.3s ease;
+    }
+
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .close-btn {
+      width: 32px; height: 32px;
+      background: var(--bg-elevated);
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+
+    .close-btn:hover { background: var(--border); color: var(--text-primary); }
+
+    /* ── Sentiment bar ────────────────────────────────────────────────── */
+    .sentiment-bar-wrap {
+      background: var(--bg-elevated);
+      border-radius: 4px;
+      height: 8px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+
+    .sentiment-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s ease;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main-content { padding: 20px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── API base ────────────────────────────────────────────────────────────
+const API_BASE = '/api';
+
+// ── API client ──────────────────────────────────────────────────────────
+const api = {
+  async request(method, path, body, token) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Request failed');
+    return data;
+  },
+  get: (path, token) => api.request('GET', path, null, token),
+  post: (path, body, token) => api.request('POST', path, body, token),
+  delete: (path, token) => api.request('DELETE', path, null, token),
+};
+
+// ── Mood helpers ────────────────────────────────────────────────────────
+const MOOD_EMOJIS = ['😰','😢','😕','😐','🙂','😊','😄','😁','🤩','🌟'];
+const MOOD_COLORS = {
+  very_bad: '#e25454', bad: '#e2854f', neutral: '#d4c357',
+  good: '#6bbd7f', very_good: '#54b8d4'
+};
+const MOOD_LABELS = {
+  very_bad: 'Very Bad', bad: 'Bad', neutral: 'Neutral',
+  good: 'Good', very_good: 'Very Good'
+};
+
+function getMoodColor(score) {
+  if (score <= 2) return '#e25454';
+  if (score <= 4) return '#e2854f';
+  if (score <= 6) return '#d4c357';
+  if (score <= 8) return '#6bbd7f';
+  return '#54b8d4';
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── Skeleton loader ─────────────────────────────────────────────────────
+function Skeleton({ w = '100%', h = 20, mt = 0 }) {
+  return <div className="skeleton" style={{ width: w, height: h, marginTop: mt }} />;
+}
+
+// ── Auth Screen ─────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [tab, setTab] = useState('login');
+  const [form, setForm] = useState({ email: '', password: '', username: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      let data;
+      if (tab === 'login') {
+        data = await api.post('/auth/login', { email: form.email, password: form.password });
+      } else {
+        data = await api.post('/auth/register', form);
+      }
+      onLogin(data.access_token);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="auth-screen fade-up">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div className="logo-mark-lg">🔮</div>
+          <h1>MoodLens</h1>
+          <p>Your AI-powered emotional journal</p>
+        </div>
+
+        <div className="auth-tabs">
+          <button className={`auth-tab ${tab==='login'?'active':''}`} onClick={() => setTab('login')}>Sign In</button>
+          <button className={`auth-tab ${tab==='register'?'active':''}`} onClick={() => setTab('register')}>Create Account</button>
+        </div>
+
+        {error && <div className="error-msg">{error}</div>}
+
+        <form onSubmit={submit}>
+          {tab === 'register' && (
+            <div className="form-group">
+              <label>Display Name</label>
+              <input type="text" placeholder="Your name" value={form.username} onChange={set('username')} required />
+            </div>
+          )}
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} required />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••" value={form.password} onChange={set('password')} required />
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%', marginTop: 8 }}>
+            {loading ? <span className="spinner" /> : (tab === 'login' ? 'Sign In' : 'Create Account')}
+          </button>
+        </form>
+
+        <p style={{ textAlign:'center', color:'var(--text-muted)', fontSize:12, marginTop:20 }}>
+          Free tier includes 10 entries/month · Premium $9.99/mo
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ─────────────────────────────────────────────────────────────
+function Sidebar({ page, setPage, user, onLogout }) {
+  const initials = user?.username?.slice(0,2)?.toUpperCase() || '?';
+  const nav = [
+    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'journal',   icon: '✍️', label: 'New Entry' },
+    { id: 'history',   icon: '📅', label: 'History' },
+  ];
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <div className="logo-mark">🔮</div>
+        <div>
+          <h1>MoodLens</h1>
+          <span>AI Journal</span>
+        </div>
+      </div>
+
+      {nav.map(n => (
+        <button key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={() => setPage(n.id)}>
+          <span className="nav-icon">{n.icon}</span>
+          {n.label}
+        </button>
+      ))}
+
+      <div className="sidebar-footer">
+        <div className="user-pill">
+          <div className="avatar">{initials}</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div className="user-name" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {user?.username}
+            </div>
+            <div className="user-tier">{user?.tier === 'premium' ? '⭐ Premium' : 'Free'}</div>
+          </div>
+          <button className="btn btn-ghost" style={{ padding:'6px 10px', fontSize:12 }} onClick={onLogout}>
+            ↗
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── Dashboard ───────────────────────────────────────────────────────────
+function Dashboard({ token, user }) {
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/analytics/summary', token)
+      .then(setAnalytics)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const moodPercent = analytics ? ((analytics.average_mood - 1) / 9 * 100) : 0;
+  const sentimentPercent = analytics?.trend?.length
+    ? analytics.trend.reduce((s, p) => s + (p.ai_sentiment ?? 0), 0) / analytics.trend.length
+    : 0;
+
+  const chartData = analytics?.trend?.slice(-14) || [];
+
+  const dist = analytics?.distribution || {};
+  const distData = [
+    { name: 'Very Bad', value: dist.very_bad || 0, color: '#e25454' },
+    { name: 'Bad',      value: dist.bad || 0,      color: '#e2854f' },
+    { name: 'Neutral',  value: dist.neutral || 0,  color: '#d4c357' },
+    { name: 'Good',     value: dist.good || 0,     color: '#6bbd7f' },
+    { name: 'Very Good',value: dist.very_good || 0,color: '#54b8d4' },
+  ].filter(d => d.value > 0);
+
+  return (
+    <div>
+      <div className="page-header fade-up">
+        <h2>Good {getTimeOfDay()}, {user?.username?.split(' ')[0]} 👋</h2>
+        <p>Here's your emotional wellbeing at a glance</p>
+      </div>
+
+      {/* Stats row */}
+      <div className="stats-grid">
+        {loading ? Array(4).fill(0).map((_,i) => (
+          <div key={i} className="stat-card"><Skeleton h={80} /></div>
+        )) : (<>
+          <div className="stat-card fade-up-delay1">
+            <div className="stat-label">Average Mood</div>
+            <div className="stat-value" style={{ color: getMoodColor(analytics?.average_mood || 0) }}>
+              {analytics?.average_mood?.toFixed(1) || '–'}
+            </div>
+            <div className="stat-sub">out of 10</div>
+          </div>
+          <div className="stat-card fade-up-delay1">
+            <div className="stat-label">Total Entries</div>
+            <div className="stat-value">{analytics?.total_entries ?? '–'}</div>
+            <div className="stat-sub">all time</div>
+          </div>
+          <div className="stat-card fade-up-delay2">
+            <div className="stat-label">Current Streak</div>
+            <div className="streak-display">
+              <span className="streak-flame">🔥</span>
+              <span className="stat-value">{analytics?.streak?.current_streak ?? 0}</span>
+            </div>
+            <div className="stat-sub">days in a row</div>
+          </div>
+          <div className="stat-card fade-up-delay3">
+            <div className="stat-label">Best Streak</div>
+            <div className="stat-value">{analytics?.streak?.longest_streak ?? 0}</div>
+            <div className="stat-sub">days personal best</div>
+          </div>
+        </>)}
+      </div>
+
+      {/* Charts row */}
+      {!loading && chartData.length > 0 && (
+        <div className="grid-2" style={{ marginBottom:20 }}>
+          <div className="card fade-up-delay1">
+            <div className="card-title">Mood Trend · Last 14 Days</div>
+            <Recharts.ResponsiveContainer width="100%" height={200}>
+              <Recharts.AreaChart data={chartData} margin={{ top:5, right:10, left:-20, bottom:5 }}>
+                <defs>
+                  <linearGradient id="moodGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#c9a84c" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#c9a84c" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Recharts.CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <Recharts.XAxis dataKey="date" tick={{ fill:'#7a8099', fontSize:11 }} tickLine={false} />
+                <Recharts.YAxis domain={[0,10]} tick={{ fill:'#7a8099', fontSize:11 }} tickLine={false} axisLine={false} />
+                <Recharts.Tooltip
+                  contentStyle={{ background:'#13161e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, color:'#f0e8d8' }}
+                  labelStyle={{ color:'#c9a84c' }}
+                />
+                <Recharts.Area type="monotone" dataKey="mood_score" stroke="#c9a84c" strokeWidth={2} fill="url(#moodGrad)" dot={{ fill:'#c9a84c', r:3 }} />
+              </Recharts.AreaChart>
+            </Recharts.ResponsiveContainer>
+          </div>
+
+          <div className="card fade-up-delay2">
+            <div className="card-title">Mood Distribution</div>
+            {distData.length > 0 ? (
+              <Recharts.ResponsiveContainer width="100%" height={200}>
+                <Recharts.PieChart>
+                  <Recharts.Pie data={distData} cx="50%" cy="50%" innerRadius={55} outerRadius={80}
+                    dataKey="value" paddingAngle={3}>
+                    {distData.map((entry, i) => (
+                      <Recharts.Cell key={i} fill={entry.color} />
+                    ))}
+                  </Recharts.Pie>
+                  <Recharts.Tooltip
+                    contentStyle={{ background:'#13161e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, color:'#f0e8d8' }}
+                  />
+                  <Recharts.Legend iconType="circle" wrapperStyle={{ fontSize:12, color:'#7a8099' }} />
+                </Recharts.PieChart>
+              </Recharts.ResponsiveContainer>
+            ) : (
+              <div style={{ color:'var(--text-muted)', fontSize:14, paddingTop:60, textAlign:'center' }}>
+                Add more entries to see your distribution
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Weekly Insight */}
+      {!loading && (
+        <div className="insight-box fade-up-delay3">
+          <div className="insight-header">
+            <span style={{ fontSize:20 }}>🤖</span>
+            <h3 style={{ fontFamily:'Playfair Display', fontSize:16 }}>AI Weekly Insight</h3>
+            <span className="ai-badge">Claude AI</span>
+          </div>
+          <p className="insight-text">
+            {analytics?.ai_weekly_insight || 'Start journaling to receive personalised weekly insights!'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── New Entry ───────────────────────────────────────────────────────────
+function NewEntry({ token, onSuccess }) {
+  const [content, setContent] = useState('');
+  const [moodScore, setMoodScore] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    if (content.trim().length < 10) { setError('Please write at least 10 characters.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const entry = await api.post('/journal/', { content, mood_score: moodScore }, token);
+      setResult(entry);
+      setContent('');
+      setMoodScore(5);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (result) return <EntryResult entry={result} onNew={() => setResult(null)} onHistory={onSuccess} />;
+
+  return (
+    <div>
+      <div className="page-header fade-up">
+        <h2>New Entry ✍️</h2>
+        <p>How are you feeling today? Write freely — this is your safe space.</p>
+      </div>
+
+      {error && <div className="error-msg">{error}</div>}
+
+      <div className="card fade-up-delay1">
+        <form onSubmit={submit}>
+          {/* Mood slider */}
+          <div className="form-group">
+            <label>How do you feel right now?</label>
+            <div className="mood-slider-wrap">
+              <div className="mood-emojis">
+                {['😰','😢','😕','😐','🙂','😊','😄','😁','🤩','🌟'].map((e,i) => (
+                  <span key={i} style={{ opacity: Math.abs(i+1-moodScore) < 2 ? 1 : 0.3, transition:'opacity 0.2s', cursor:'pointer' }}
+                    onClick={() => setMoodScore(i+1)}>
+                    {e}
+                  </span>
+                ))}
+              </div>
+              <input type="range" min="1" max="10" value={moodScore}
+                onChange={e => setMoodScore(Number(e.target.value))}
+                style={{ accentColor: getMoodColor(moodScore) }}
+              />
+              <div className="mood-value-display" style={{ color: getMoodColor(moodScore), WebkitTextFillColor: getMoodColor(moodScore), textShadow: `0 0 30px ${getMoodColor(moodScore)}66` }}>
+                {moodScore}/10
+              </div>
+            </div>
+          </div>
+
+          {/* Journal text */}
+          <div className="form-group">
+            <label>What's on your mind?</label>
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Write about your day, feelings, thoughts, or anything on your mind. The AI will analyse your entry and provide personalised insights..."
+              rows={8}
+            />
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6, textAlign:'right' }}>
+              {content.length} / 4000 chars
+            </div>
+          </div>
+
+          <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{ minWidth:160 }}>
+              {loading ? (
+                <>
+                  <span className="spinner" style={{ width:16, height:16, borderWidth:2 }} />
+                  Analysing…
+                </>
+              ) : '🔮 Save & Analyse'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style={{ color:'var(--text-muted)', fontSize:12, marginTop:16, textAlign:'center' }}>
+        🔒 Your entries are private and encrypted · AI-powered by Claude
+      </div>
+    </div>
+  );
+}
+
+// ── Entry result ─────────────────────────────────────────────────────────
+function EntryResult({ entry, onNew, onHistory }) {
+  const tips = entry.ai_coping_tips?.split('\n').filter(Boolean) || [];
+  const sentimentPct = ((entry.ai_sentiment || 0) + 1) / 2 * 100;
+  const sentimentColor = entry.ai_sentiment > 0.2 ? '#6bbd7f' : entry.ai_sentiment < -0.2 ? '#e25454' : '#d4c357';
+
+  return (
+    <div className="fade-up">
+      <div className="page-header">
+        <h2>Entry Saved ✅</h2>
+        <p>Your journal has been analysed by Claude AI</p>
+      </div>
+
+      {/* AI Summary */}
+      <div className="insight-box" style={{ marginBottom:20 }}>
+        <div className="insight-header">
+          <span style={{ fontSize:20 }}>💬</span>
+          <h3 style={{ fontFamily:'Playfair Display', fontSize:16 }}>AI Summary</h3>
+          <span className="ai-badge">Claude AI</span>
+        </div>
+        <p className="insight-text">{entry.ai_summary}</p>
+      </div>
+
+      <div className="grid-2" style={{ marginBottom:20 }}>
+        {/* Insight */}
+        <div className="card">
+          <div className="card-title">💡 Personal Insight</div>
+          <p style={{ fontSize:14, lineHeight:1.75, color:'var(--text-primary)' }}>{entry.ai_insight}</p>
+
+          {/* Sentiment bar */}
+          <div style={{ marginTop:18 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text-muted)', marginBottom:6 }}>
+              <span>Negative</span>
+              <span>Sentiment: {((entry.ai_sentiment || 0) * 100).toFixed(0)}%</span>
+              <span>Positive</span>
+            </div>
+            <div className="sentiment-bar-wrap">
+              <div className="sentiment-bar" style={{ width:`${sentimentPct}%`, background:sentimentColor }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Coping tips */}
+        <div className="card">
+          <div className="card-title">🌱 Coping Strategies</div>
+          {tips.map((tip, i) => (
+            <div key={i} className="coping-tip">{tip}</div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', gap:12 }}>
+        <button className="btn btn-primary" onClick={onNew}>Write Another Entry</button>
+        <button className="btn btn-ghost" onClick={onHistory}>View History</button>
+      </div>
+    </div>
+  );
+}
+
+// ── History ──────────────────────────────────────────────────────────────
+function History({ token }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [detailEntry, setDetailEntry] = useState(null);
+  const PAGE_SIZE = 8;
+
+  const fetchPage = useCallback(async (p) => {
+    setLoading(true);
+    try {
+      const data = await api.get(`/journal/?page=${p}&page_size=${PAGE_SIZE}`, token);
+      setEntries(data.items);
+      setTotal(data.total);
+      setHasNext(data.has_next);
+    } catch(e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { fetchPage(page); }, [page, fetchPage]);
+
+  async function openEntry(id) {
+    const entry = await api.get(`/journal/${id}`, token);
+    setDetailEntry(entry);
+  }
+
+  async function deleteEntry(id) {
+    await api.delete(`/journal/${id}`, token);
+    fetchPage(page);
+    setDetailEntry(null);
+  }
+
+  return (
+    <div>
+      <div className="page-header fade-up">
+        <h2>Journal History 📅</h2>
+        <p>{total} {total === 1 ? 'entry' : 'entries'} in your journal</p>
+      </div>
+
+      {loading ? (
+        Array(5).fill(0).map((_,i) => (
+          <div key={i} className="card" style={{ marginBottom:14 }}>
+            <Skeleton h={14} w="40%" />
+            <Skeleton h={14} mt={12} />
+            <Skeleton h={14} mt={8} w="70%" />
+          </div>
+        ))
+      ) : entries.length === 0 ? (
+        <div className="card" style={{ textAlign:'center', padding:60 }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>📖</div>
+          <h3 style={{ fontFamily:'Playfair Display', marginBottom:8 }}>No entries yet</h3>
+          <p style={{ color:'var(--text-muted)' }}>Start journaling to see your history here</p>
+        </div>
+      ) : (
+        entries.map(entry => (
+          <div key={entry.id} className="entry-card fade-up" onClick={() => openEntry(entry.id)}>
+            <div className="entry-header">
+              <span className="entry-date">{formatDate(entry.created_at)}</span>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <span className="mood-badge"
+                  style={{ background:`${MOOD_COLORS[entry.mood_label]}22`, color:MOOD_COLORS[entry.mood_label] }}>
+                  {MOOD_EMOJIS[entry.mood_score - 1]} {entry.mood_score}/10
+                </span>
+                <span className="tag" style={{ background:'rgba(255,255,255,0.05)', color:'var(--text-muted)' }}>
+                  {MOOD_LABELS[entry.mood_label]}
+                </span>
+              </div>
+            </div>
+            {entry.is_processed ? (
+              <p className="entry-summary">{entry.ai_summary || 'No summary'}</p>
+            ) : (
+              <span className="entry-processing">
+                <span className="spinner" style={{ width:12, height:12 }} />
+                Analysing…
+              </span>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* Pagination */}
+      {total > PAGE_SIZE && (
+        <div style={{ display:'flex', justifyContent:'center', gap:12, marginTop:20 }}>
+          <button className="btn btn-ghost" disabled={page <= 1} onClick={() => setPage(p => p-1)}>← Prev</button>
+          <span style={{ alignSelf:'center', color:'var(--text-muted)', fontSize:13 }}>
+            Page {page} of {Math.ceil(total / PAGE_SIZE)}
+          </span>
+          <button className="btn btn-ghost" disabled={!hasNext} onClick={() => setPage(p => p+1)}>Next →</button>
+        </div>
+      )}
+
+      {/* Entry detail modal */}
+      {detailEntry && (
+        <div className="modal-overlay" onClick={() => setDetailEntry(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:4 }}>{formatDate(detailEntry.created_at)}</div>
+                <h2 style={{ fontSize:22 }}>Journal Entry</h2>
+              </div>
+              <button className="close-btn" onClick={() => setDetailEntry(null)}>✕</button>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <span className="mood-badge"
+                style={{ background:`${MOOD_COLORS[detailEntry.mood_label]}22`, color:MOOD_COLORS[detailEntry.mood_label] }}>
+                {MOOD_EMOJIS[detailEntry.mood_score - 1]} Mood: {detailEntry.mood_score}/10
+              </span>
+            </div>
+
+            <div style={{ background:'var(--bg-input)', borderRadius:'var(--radius-sm)', padding:16, marginBottom:20 }}>
+              <p style={{ fontSize:14, lineHeight:1.8, color:'var(--text-primary)' }}>{detailEntry.content}</p>
+            </div>
+
+            {detailEntry.is_processed && (<>
+              <div className="insight-box" style={{ marginBottom:16 }}>
+                <div className="insight-header">
+                  <span>💬</span>
+                  <h3 style={{ fontFamily:'Playfair Display', fontSize:15 }}>AI Insight</h3>
+                  <span className="ai-badge">Claude AI</span>
+                </div>
+                <p className="insight-text">{detailEntry.ai_insight}</p>
+                <div style={{ marginTop:12 }}>
+                  <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6, display:'flex', justifyContent:'space-between' }}>
+                    <span>Sentiment</span>
+                    <span>{((detailEntry.ai_sentiment || 0) * 100).toFixed(0)}% positive</span>
+                  </div>
+                  <div className="sentiment-bar-wrap">
+                    <div className="sentiment-bar" style={{
+                      width:`${((detailEntry.ai_sentiment || 0) + 1) / 2 * 100}%`,
+                      background: detailEntry.ai_sentiment > 0.2 ? '#6bbd7f' : detailEntry.ai_sentiment < -0.2 ? '#e25454' : '#d4c357'
+                    }} />
+                  </div>
+                </div>
+              </div>
+
+              {detailEntry.ai_coping_tips && (
+                <div style={{ marginBottom:16 }}>
+                  <div className="card-title" style={{ marginBottom:12 }}>🌱 Suggested Coping Strategies</div>
+                  {detailEntry.ai_coping_tips.split('\n').filter(Boolean).map((tip, i) => (
+                    <div key={i} className="coping-tip">{tip}</div>
+                  ))}
+                </div>
+              )}
+            </>)}
+
+            <div style={{ display:'flex', justifyContent:'flex-end' }}>
+              <button className="btn btn-danger" onClick={() => deleteEntry(detailEntry.id)}>🗑 Delete Entry</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Helper ──────────────────────────────────────────────────────────────
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+}
+
+// ── Root App ─────────────────────────────────────────────────────────────
+function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('ml_token'));
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState('dashboard');
+  const [userLoading, setUserLoading] = useState(!!token);
+
+  useEffect(() => {
+    if (!token) return;
+    api.get('/auth/me', token)
+      .then(setUser)
+      .catch(() => { localStorage.removeItem('ml_token'); setToken(null); })
+      .finally(() => setUserLoading(false));
+  }, [token]);
+
+  function handleLogin(t) {
+    localStorage.setItem('ml_token', t);
+    setToken(t);
+    setPage('dashboard');
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('ml_token');
+    setToken(null);
+    setUser(null);
+  }
+
+  if (!token) return <AuthScreen onLogin={handleLogin} />;
+
+  if (userLoading) {
+    return (
+      <div className="loading-full">
+        <div className="spinner" />
+        <p>Loading MoodLens…</p>
+      </div>
+    );
+  }
+
+  function renderPage() {
+    switch (page) {
+      case 'dashboard': return <Dashboard token={token} user={user} />;
+      case 'journal':   return <NewEntry token={token} onSuccess={() => setPage('history')} />;
+      case 'history':   return <History token={token} />;
+      default:          return <Dashboard token={token} user={user} />;
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <Sidebar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+      <main className="main-content">
+        {renderPage()}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
