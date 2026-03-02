@@ -55,7 +55,7 @@ Moving on to the tech stack, it did everything i asked it to with regards to the
 
 react frontend, fast api backend, caching with TTLcache, SQLite database but it also made a project requiring an anthropic api key for ai services.
 
-I don't have an api key, i use a free subscription (kinda broke right now) but i take half the blame of not specifying. I suppose and my previous chats did involve setting up claude code so maybe it made a fair assumption that i had credits and a max or pro subscription.
+I don't have an api key, i use a free subscription (kinda broke right now) but i take half the blame of not specifying I suppose and my previous chats did involve setting up claude code so maybe it made a fair assumption that i had credits and a max or pro subscription.
 
 apart from that it probably took 10 minutes to code up everything, made the entire frontend in one file which im not the biggest fan of but it works. good abstraction in my opinion for the backend and a clear documentation of all the classes and their functions.
 
