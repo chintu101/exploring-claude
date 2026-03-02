@@ -22,10 +22,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from backend.config import settings
-from backend.database import get_db
-from backend.models import User
+from moodlens.backend.config import settings
+from moodlens.backend.database import get_db
+from moodlens.backend.models import User
 
 # ── Password hashing ───────────────────────────────────────────────────────
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -120,7 +121,7 @@ async def get_current_user(
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token")
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
+    result = await db.execute(select(User).options(selectinload(User.streak)).where(User.id == int(user_id)))
     user: Optional[User] = result.scalar_one_or_none()
 
     if user is None:

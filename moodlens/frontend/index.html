@@ -10,11 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- React 18, Babel, Recharts -->
+  <!-- React 18, Babel -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.min.js"></script>
 
   <style>
     /* ── Design tokens ─────────────────────────────────────────────── */
@@ -412,9 +411,7 @@
       font-size: 42px;
       font-weight: 700;
       margin: 10px 0;
-      background: linear-gradient(to right, var(--gold), var(--gold-light));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
     }
 
     /* ── Skeleton loader ─────────────────────────────────────────────── */
@@ -751,7 +748,65 @@ function Skeleton({ w = '100%', h = 20, mt = 0 }) {
   return <div className="skeleton" style={{ width: w, height: h, marginTop: mt }} />;
 }
 
-// ── Auth Screen ─────────────────────────────────────────────────────────
+// ── Error Boundary ──────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('React Error Boundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ 
+          minHeight: '100vh', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          background: 'var(--bg-deep)',
+          color: 'var(--text-primary)',
+          padding: '40px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>⚠️</div>
+          <h2 style={{ fontFamily: 'Playfair Display', marginBottom: 10 }}>Something went wrong</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>We encountered an error while loading the app.</p>
+          <details style={{ marginBottom: 20, textAlign: 'left', maxWidth: 500 }}>
+            <summary style={{ cursor: 'pointer', color: 'var(--gold)', fontWeight: 600 }}>Error details</summary>
+            <pre style={{ 
+              background: 'var(--bg-input)', 
+              padding: 12, 
+              borderRadius: 8, 
+              marginTop: 10,
+              overflow: 'auto',
+              fontSize: 12
+            }}>{this.state.error?.toString()}</pre>
+          </details>
+          <button 
+            className="btn btn-primary"
+            onClick={() => window.location.reload()}
+            style={{ padding: '12px 24px' }}
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// ── Auth Screen ──────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [tab, setTab] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', username: '' });
@@ -870,11 +925,14 @@ function Sidebar({ page, setPage, user, onLogout }) {
 function Dashboard({ token, user }) {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     api.get('/analytics/summary', token)
-      .then(setAnalytics)
-      .catch(console.error)
+      .then(data => { setAnalytics(data); })
+      .catch(err => { console.error(err); setError(err.message); })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -893,6 +951,20 @@ function Dashboard({ token, user }) {
     { name: 'Good',     value: dist.good || 0,     color: '#6bbd7f' },
     { name: 'Very Good',value: dist.very_good || 0,color: '#54b8d4' },
   ].filter(d => d.value > 0);
+
+  if (error) return (
+    <div>
+      <div className="page-header"><h2>Dashboard</h2></div>
+      <div className="error-msg" style={{ fontSize:14 }}>
+        ⚠️ Failed to load: {error}
+        <button className="btn btn-ghost" style={{ marginLeft:16, padding:'6px 14px', fontSize:13 }}
+          onClick={() => { setError(null); setLoading(true); api.get('/analytics/summary', token).then(setAnalytics).catch(e=>setError(e.message)).finally(()=>setLoading(false)); }}>
+          Retry
+        </button>
+      </div>
+    </div>
+  );
+
 
   return (
     <div>
@@ -939,43 +1011,50 @@ function Dashboard({ token, user }) {
         <div className="grid-2" style={{ marginBottom:20 }}>
           <div className="card fade-up-delay1">
             <div className="card-title">Mood Trend · Last 14 Days</div>
-            <Recharts.ResponsiveContainer width="100%" height={200}>
-              <Recharts.AreaChart data={chartData} margin={{ top:5, right:10, left:-20, bottom:5 }}>
-                <defs>
-                  <linearGradient id="moodGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#c9a84c" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#c9a84c" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Recharts.CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <Recharts.XAxis dataKey="date" tick={{ fill:'#7a8099', fontSize:11 }} tickLine={false} />
-                <Recharts.YAxis domain={[0,10]} tick={{ fill:'#7a8099', fontSize:11 }} tickLine={false} axisLine={false} />
-                <Recharts.Tooltip
-                  contentStyle={{ background:'#13161e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, color:'#f0e8d8' }}
-                  labelStyle={{ color:'#c9a84c' }}
-                />
-                <Recharts.Area type="monotone" dataKey="mood_score" stroke="#c9a84c" strokeWidth={2} fill="url(#moodGrad)" dot={{ fill:'#c9a84c', r:3 }} />
-              </Recharts.AreaChart>
-            </Recharts.ResponsiveContainer>
+            <div style={{ height: 200, padding: '10px 0', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', gap: 4 }}>
+              {chartData.map((d, i) => (
+                <div key={i} style={{
+                  flex: 1,
+                  height: `${(d.mood_score / 10) * 100}%`,
+                  background: 'linear-gradient(to top, #c9a84c, #c9a84c66)',
+                  borderRadius: '4px 4px 0 0',
+                  position: 'relative',
+                  minHeight: 10,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }} title={`${d.date}: ${d.mood_score}/10`} />
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
+              {chartData[0]?.date} to {chartData[chartData.length-1]?.date}
+            </div>
           </div>
 
           <div className="card fade-up-delay2">
             <div className="card-title">Mood Distribution</div>
             {distData.length > 0 ? (
-              <Recharts.ResponsiveContainer width="100%" height={200}>
-                <Recharts.PieChart>
-                  <Recharts.Pie data={distData} cx="50%" cy="50%" innerRadius={55} outerRadius={80}
-                    dataKey="value" paddingAngle={3}>
-                    {distData.map((entry, i) => (
-                      <Recharts.Cell key={i} fill={entry.color} />
-                    ))}
-                  </Recharts.Pie>
-                  <Recharts.Tooltip
-                    contentStyle={{ background:'#13161e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:10, color:'#f0e8d8' }}
-                  />
-                  <Recharts.Legend iconType="circle" wrapperStyle={{ fontSize:12, color:'#7a8099' }} />
-                </Recharts.PieChart>
-              </Recharts.ResponsiveContainer>
+              <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
+                {distData.map((entry, i) => {
+                  const total = distData.reduce((s, d) => s + d.value, 0);
+                  const pct = (entry.value / total) * 100;
+                  return (
+                    <div key={i}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{entry.name}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{entry.value}</span>
+                      </div>
+                      <div style={{ width: '100%', height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: entry.color,
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div style={{ color:'var(--text-muted)', fontSize:14, paddingTop:60, textAlign:'center' }}>
                 Add more entries to see your distribution
@@ -1056,7 +1135,7 @@ function NewEntry({ token, onSuccess }) {
                 onChange={e => setMoodScore(Number(e.target.value))}
                 style={{ accentColor: getMoodColor(moodScore) }}
               />
-              <div className="mood-value-display" style={{ background:`linear-gradient(to right, ${getMoodColor(moodScore)}, ${getMoodColor(Math.min(moodScore+2,10))})`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+              <div className="mood-value-display" style={{ color: getMoodColor(moodScore), WebkitTextFillColor: getMoodColor(moodScore), textShadow: `0 0 30px ${getMoodColor(moodScore)}66` }}>
                 {moodScore}/10
               </div>
             </div>
@@ -1327,18 +1406,40 @@ function App() {
   const [token, setToken] = useState(() => localStorage.getItem('ml_token'));
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('dashboard');
-  const [userLoading, setUserLoading] = useState(!!token);
+  const [userLoading, setUserLoading] = useState(!!localStorage.getItem('ml_token'));
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+
+  console.log('App render:', { token: !!token, user: !!user, userLoading, hasCheckedAuth });
 
   useEffect(() => {
-    if (!token) return;
+    if (hasCheckedAuth) return;
+    
+    if (!token) { 
+      setUserLoading(false); 
+      setHasCheckedAuth(true);
+      return; 
+    }
+    
+    setUserLoading(true);
     api.get('/auth/me', token)
-      .then(setUser)
-      .catch(() => { localStorage.removeItem('ml_token'); setToken(null); })
-      .finally(() => setUserLoading(false));
+      .then(data => { 
+        setUser(data); 
+        setUserLoading(false);
+        setHasCheckedAuth(true);
+      })
+      .catch(err => {
+        console.error('Auth check failed:', err);
+        localStorage.removeItem('ml_token');
+        setToken(null);
+        setUser(null);
+        setUserLoading(false);
+        setHasCheckedAuth(true);
+      });
   }, [token]);
 
   function handleLogin(t) {
     localStorage.setItem('ml_token', t);
+    setUser(null);
     setToken(t);
     setPage('dashboard');
   }
@@ -1349,8 +1450,6 @@ function App() {
     setUser(null);
   }
 
-  if (!token) return <AuthScreen onLogin={handleLogin} />;
-
   if (userLoading) {
     return (
       <div className="loading-full">
@@ -1359,6 +1458,8 @@ function App() {
       </div>
     );
   }
+
+  if (!token) return <AuthScreen onLogin={handleLogin} />;
 
   function renderPage() {
     switch (page) {
@@ -1379,7 +1480,11 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
 </script>
 </body>
 </html>

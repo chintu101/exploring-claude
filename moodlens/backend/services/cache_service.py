@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from cachetools import TTLCache
 
-from backend.config import settings
+from moodlens.backend.config import settings
 
 
 class CacheService:

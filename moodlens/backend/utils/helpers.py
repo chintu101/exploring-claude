@@ -12,10 +12,10 @@ format_entries_for_ai    – Prepare journal text for the weekly insight prompt
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
-from backend.models import MoodLabel
+from moodlens.backend.models import MoodLabel
 
 
 def score_to_mood_label(score: int) -> MoodLabel:

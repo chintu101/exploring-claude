@@ -27,11 +27,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import settings
-from backend.database import create_tables
-from backend.routes.analytics import router as analytics_router
-from backend.routes.auth import router as auth_router
-from backend.routes.journal import router as journal_router
+from moodlens.backend.config import settings
+from moodlens.backend.database import create_tables
+from moodlens.backend.routes.analytics import router as analytics_router
+from moodlens.backend.routes.auth import router as auth_router
+from moodlens.backend.routes.journal import router as journal_router
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(

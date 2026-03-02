@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from backend.config import settings
+from moodlens.backend.config import settings
 
 
 # ── Engine ─────────────────────────────────────────────────────────────────

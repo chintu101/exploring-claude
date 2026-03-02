@@ -30,7 +30,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from backend.config import settings
+from moodlens.backend.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -16,10 +16,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
-from backend.models import User
-from backend.schemas import MessageResponse, Token, UserLogin, UserOut, UserRegister
-from backend.services.auth_service import AuthService, get_current_user
+from moodlens.backend.database import get_db
+from moodlens.backend.models import User
+from moodlens.backend.schemas import Token, UserLogin, UserOut, UserRegister
+from moodlens.backend.services.auth_service import AuthService, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

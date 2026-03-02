@@ -24,20 +24,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.config import settings
-from backend.database import get_db
-from backend.models import DailyStreak, JournalEntry, SubscriptionTier, User
-from backend.schemas import (
+from moodlens.backend.config import settings
+from moodlens.backend.database import get_db
+from moodlens.backend.models import DailyStreak, JournalEntry, SubscriptionTier, User
+from moodlens.backend.schemas import (
     JournalEntryCreate,
     JournalEntryOut,
     PaginatedEntries,
     JournalEntryBrief,
     MessageResponse,
 )
-from backend.services.ai_service import ai_service
-from backend.services.auth_service import get_current_user
-from backend.services.cache_service import cache
-from backend.utils.helpers import calculate_streak, score_to_mood_label
+from moodlens.backend.services.ai_service import ai_service
+from moodlens.backend.services.auth_service import get_current_user
+from moodlens.backend.services.cache_service import cache
+from moodlens.backend.utils.helpers import calculate_streak, score_to_mood_label
 
 router = APIRouter(prefix="/journal", tags=["Journal"])
 

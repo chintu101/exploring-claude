@@ -15,7 +15,7 @@ Base (DeclarativeBase)
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
@@ -30,7 +30,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.database import Base
+from moodlens.backend.database import Base
 
 
 # ── Enums ──────────────────────────────────────────────────────────────────

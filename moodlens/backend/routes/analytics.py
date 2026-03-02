@@ -18,24 +18,23 @@ never hit the database unnecessarily.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
-from backend.models import JournalEntry, MoodLabel, User
-from backend.schemas import (
+from moodlens.backend.database import get_db
+from moodlens.backend.models import JournalEntry, MoodLabel, User
+from moodlens.backend.schemas import (
     AnalyticsSummary,
     MoodDataPoint,
     MoodDistribution,
     StreakInfo,
 )
-from backend.services.ai_service import ai_service
-from backend.services.auth_service import get_current_user
-from backend.services.cache_service import cache
-from backend.utils.helpers import format_entries_for_ai
+from moodlens.backend.services.ai_service import ai_service
+from moodlens.backend.services.auth_service import get_current_user
+from moodlens.backend.services.cache_service import cache
+from moodlens.backend.utils.helpers import format_entries_for_ai
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 

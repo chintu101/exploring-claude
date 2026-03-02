@@ -16,7 +16,7 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from backend.models import MoodLabel, SubscriptionTier
+from moodlens.backend.models import MoodLabel, SubscriptionTier
 
 
 # ═══════════════════════════════════════════════════════════════════════════
