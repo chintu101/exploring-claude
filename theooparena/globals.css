@@ -2,74 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Custom scrollbars ───────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --gold: #f59e0b;
+  --gold-dim: #92400e;
+  --ember: #ef4444;
+  --arcane: #8b5cf6;
+  --teal: #14b8a6;
+  --bg: #080810;
+  --surface: #0f0f1a;
+  --surface2: #161625;
+  --border: #1e1e35;
 }
 
-/* ── Code block styling (used inside CodeTrace) ──────────────────────────── */
-.code-block {
-  font-family: var(--font-mono), "JetBrains Mono", "Fira Code", monospace;
-  font-size: 0.75rem;
-  line-height: 1.6;
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  font-family: 'Crimson Pro', Georgia, serif;
+  color: #e2e8f0;
 }
 
-/* ── Smooth HP bar transitions ───────────────────────────────────────────── */
-.hp-bar-inner {
-  transition: width 0.4s ease-in-out;
+.font-display { font-family: 'Cinzel', serif; }
+.font-mono    { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d2d4e; border-radius: 2px; }
+
+/* ── Noise texture overlay ── */
+.noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: inherit;
 }
 
-/* ── Battle log fade-in ──────────────────────────────────────────────────── */
-@keyframes logFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ── Glow animations ── */
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 8px 0px #f59e0b44; }
+  50%       { box-shadow: 0 0 20px 4px #f59e0b66; }
 }
-.log-entry {
-  animation: logFadeIn 0.25s ease-out;
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 8px 0px #ef444444; }
+  50%       { box-shadow: 0 0 20px 4px #ef444466; }
 }
-
-/* ── Trace step slide-in ─────────────────────────────────────────────────── */
-@keyframes traceSlide {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
 }
-.trace-step {
-  animation: traceSlide 0.3s ease-out;
+@keyframes slash {
+  0%   { transform: scale(1) rotate(-5deg); opacity: 1; }
+  50%  { transform: scale(1.15) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
 }
 
-/* ── Pulsing attack indicator ────────────────────────────────────────────── */
-@keyframes combatPulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.15);
-  }
+.animate-float       { animation: float 3s ease-in-out infinite; }
+.animate-pulse-gold  { animation: pulse-gold 2s ease-in-out infinite; }
+.animate-pulse-red   { animation: pulse-red 2s ease-in-out infinite; }
+.animate-fade-slide  { animation: fadeSlideIn 0.35s ease-out forwards; }
+
+/* ── HP bar shimmer on damage ── */
+.bar-fill {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
-.combat-active {
-  animation: combatPulse 1.2s ease-in-out infinite;
+.bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
 }

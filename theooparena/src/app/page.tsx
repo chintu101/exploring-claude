@@ -14,45 +14,54 @@ export default function Home() {
   const [sidePanel, setSidePanel] = useState<SidePanel>("trace");
 
   if (!game.gameState) {
-    return (
-      <HeroSelector
-        onSelect={game.startNewGame}
-        isLoading={game.isLoading}
-      />
-    );
+    return <HeroSelector onSelect={game.startNewGame} isLoading={game.isLoading} />;
   }
 
   const { hero, enemies, wave, phase, battle_log } = game.gameState;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
-      <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur px-4 py-2 flex items-center justify-between">
+    <div className="min-h-screen flex flex-col" style={{ background: "#080810" }}>
+      {/* Top bar */}
+      <header
+        className="shrink-0 flex items-center justify-between px-4 py-2.5"
+        style={{ borderBottom: "1px solid #1a1a2e", background: "rgba(8,8,16,0.9)", backdropFilter: "blur(12px)" }}
+      >
         <div className="flex items-center gap-3">
-          <span className="text-amber-400 text-xl font-black tracking-tight">⚔ CodeQuest</span>
-          <span className="text-xs text-gray-500 hidden sm:block">OOP Arena</span>
+          <span className="font-display font-black text-lg tracking-wider" style={{ color: "#f59e0b" }}>⚔ CodeQuest</span>
+          <span className="text-xs font-mono hidden sm:block" style={{ color: "#2a2a4a" }}>OOP Arena</span>
         </div>
-        <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
+
+        {/* Panel toggle */}
+        <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "#0f0f1a", border: "1px solid #1a1a2e" }}>
           <button
             onClick={() => setSidePanel("trace")}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-              sidePanel === "trace" ? "bg-amber-500 text-gray-950" : "text-gray-400 hover:text-gray-200"
-            }`}
-          >Code Trace</button>
+            className="px-3 py-1 rounded-md text-xs font-mono tracking-widest uppercase transition-all"
+            style={sidePanel === "trace"
+              ? { background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }
+              : { color: "#3a3a5a", border: "1px solid transparent" }}
+          >Trace</button>
           <button
             onClick={() => setSidePanel("explorer")}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
-              sidePanel === "explorer" ? "bg-violet-500 text-white" : "text-gray-400 hover:text-gray-200"
-            }`}
-          >Class Explorer</button>
+            className="px-3 py-1 rounded-md text-xs font-mono tracking-widest uppercase transition-all"
+            style={sidePanel === "explorer"
+              ? { background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.3)" }
+              : { color: "#3a3a5a", border: "1px solid transparent" }}
+          >Classes</button>
         </div>
+
         <button
           onClick={game.resetGame}
-          className="text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-1 rounded border border-gray-700 hover:border-red-700"
-        >↩ New Hero</button>
+          className="text-xs font-mono transition-colors px-2 py-1 rounded"
+          style={{ color: "#3a3a5a", border: "1px solid #1a1a2e" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#f87171")}
+          onMouseLeave={e => (e.currentTarget.style.color = "#3a3a5a")}
+        >↩ Quit</button>
       </header>
 
+      {/* Main */}
       <main className="flex-1 flex overflow-hidden">
-        <section className="flex-1 min-w-0 overflow-y-auto p-4">
+        {/* Battle */}
+        <section className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6">
           <BattleArena
             hero={hero}
             enemies={enemies}
@@ -66,14 +75,17 @@ export default function Home() {
             score={hero.experience ?? 0}
           />
         </section>
-        <aside className="w-[420px] min-w-[320px] max-w-[480px] border-l border-gray-800 overflow-y-auto hidden md:block">
+
+        {/* Side panel (desktop) */}
+        <aside className="w-[400px] shrink-0 hidden md:flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1a1a2e" }}>
           {sidePanel === "trace"
             ? <CodeTracePanel trace={game.activeTrace} enemyTrace={game.enemyTrace} />
             : <ClassExplorer />}
         </aside>
       </main>
 
-      <section className="md:hidden border-t border-gray-800 max-h-72 overflow-y-auto">
+      {/* Side panel (mobile) */}
+      <section className="md:hidden max-h-64 overflow-hidden" style={{ borderTop: "1px solid #1a1a2e" }}>
         {sidePanel === "trace"
           ? <CodeTracePanel trace={game.activeTrace} enemyTrace={game.enemyTrace} />
           : <ClassExplorer />}
