@@ -58,13 +58,13 @@ function clearStorage(): void {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useGameState(): GameStateHook {
-  const [gameState, setGameState] = useState<GameState | null>(() => {
-    // Hydrate from localStorage on first render
-    if (typeof window !== "undefined") {
-      return loadFromStorage();
-    }
-    return null;
-  });
+  const [gameState, setGameState] = useState<GameState | null>(null);
+
+  // Load persisted state AFTER hydration so server + client render identical initial HTML
+  useEffect(() => {
+    const saved = loadFromStorage();
+    if (saved) setGameState(saved);
+  }, []);
   const [activeTrace, setActiveTrace] = useState<CodeTrace | null>(null);
   const [enemyTrace, setEnemyTrace] = useState<CodeTrace | null>(null);
   const [isLoading, setIsLoading] = useState(false);
