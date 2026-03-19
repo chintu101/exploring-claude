@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { HeroClass } from "@/types/game";
-import { HERO_META } from "@/types/game";
+import type { HeroClass } from "../types/game";
+import { HERO_META } from "../types/game";
 
 interface HeroSelectorProps {
   onSelect: (heroClass: HeroClass, heroName: string) => void;
@@ -124,3 +124,5 @@ export function HeroSelector({ onSelect, isLoading }: HeroSelectorProps) {
     </div>
   );
 }
+
+export default HeroSelector;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CodeTrace, TraceStep } from "@/types/game";
-import { CLASS_COLORS } from "@/types/game";
+import type { CodeTrace, TraceStep } from "../types/game";
+import { CLASS_COLORS } from "../types/game";
 
 // ─── Inheritance chain visualizer ─────────────────────────────────────────────
 
@@ -195,3 +195,5 @@ export function CodeTracePanel({ trace, enemyTrace, title = "Code Trace" }: Code
     </div>
   );
 }
+
+export default CodeTracePanel;

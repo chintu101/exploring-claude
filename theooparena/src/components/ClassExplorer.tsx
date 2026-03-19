@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ClassNode, OopConcept } from "@/types/game";
-import { CLASS_COLORS } from "@/types/game";
+import type { ClassNode, OopConcept } from "../types/game";
+import { CLASS_COLORS } from "../types/game";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -303,3 +303,5 @@ export function ClassExplorer() {
     </div>
   );
 }
+
+export default ClassExplorer;

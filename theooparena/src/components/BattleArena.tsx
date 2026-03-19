@@ -1,7 +1,7 @@
 "use client";
 
-import type { CharacterSnapshot, PlayerAction } from "@/types/game";
-import { ENEMY_ICONS } from "@/types/game";
+import type { CharacterSnapshot, PlayerAction } from "../types/game";
+import { ENEMY_ICONS } from "../types/game";
 
 // ─── HP / Mana bar ────────────────────────────────────────────────────────────
 
@@ -284,7 +284,7 @@ export function BattleArena({
 
       <div className="space-y-2">
         {enemies.map((enemy, i) => (
-          <EnemyCard key={enemy.entity_id ?? i} enemy={enemy} index={i} />
+          <EnemyCard key={enemy.name + i} enemy={enemy} index={i} />
         ))}
       </div>
 
@@ -342,3 +342,5 @@ export function BattleArena({
     </div>
   );
 }
+
+export default BattleArena;

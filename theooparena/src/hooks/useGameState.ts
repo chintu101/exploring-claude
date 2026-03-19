@@ -8,7 +8,7 @@ import type {
   GamePhase,
   PlayerAction,
   HeroClass,
-} from "@/types/game";
+} from "../types/game";
 
 
 
